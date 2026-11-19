@@ -1,0 +1,10 @@
+# Redgate Flyway configuration. Run from /database:  flyway migrate
+[environments.local]
+url = "jdbc:sqlserver://localhost:1433;databaseName=HardshipDesk;encrypt=true;trustServerCertificate=true"
+user = "sa"
+password = "${env.MSSQL_SA_PASSWORD}"
+
+[flyway]
+environment = "local"
+locations = ["filesystem:migrations"]
+validateMigrationNaming = true

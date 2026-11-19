@@ -1,0 +1,25 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HardshipDesk.Api", "HardshipDesk.Api\HardshipDesk.Api.csproj", "{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C01}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "HardshipDesk.Tests", "HardshipDesk.Tests\HardshipDesk.Tests.csproj", "{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C02}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C02}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C1B7C2E-3B7A-4C6F-9A51-2D7E0A1B4C02}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: 8.0.x }
+      - run: dotnet test backend/HardshipDesk.sln
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci && npm test && npm run build
+        working-directory: frontend
+
+  database:
+    runs-on: ubuntu-latest
+    services:
+      sql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env: { ACCEPT_EULA: Y, MSSQL_SA_PASSWORD: Ci_Passw0rd! }
+        ports: ["1433:1433"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create database
+        run: |
+          for i in $(seq 1 30); do docker exec ${{ job.services.sql.id }} /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Ci_Passw0rd!' -Q "CREATE DATABASE HardshipDesk" && break; sleep 3; done
+      - name: Flyway migrate
+        run: |
+          docker run --rm --network host -v ${{ github.workspace }}/database/migrations:/flyway/sql redgate/flyway:latest \
+            -url="jdbc:sqlserver://localhost:1433;databaseName=HardshipDesk;encrypt=true;trustServerCertificate=true" \
+            -user=sa -password='Ci_Passw0rd!' -locations=filesystem:/flyway/sql migrate
