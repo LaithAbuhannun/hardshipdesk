@@ -30,12 +30,15 @@ HardshipDesk logs every notice the moment it arrives, works out the correct lega
 - **Live statutory clock per case.** The deadline recalculates automatically when information is requested or received, and the rule applied is shown in plain English.
 - **Blocks illegal actions.** You can't request information after day 21. The API rejects it and so does the database.
 - **Morning deadline sweep (Hangfire).** A recurring job runs at **8am Sydney time** and raises alerts for cases due within 3 days or already overdue, plus missing variation notices. It's idempotent, so retries never duplicate alerts.
-- **Compliance dashboard.** Open cases, overdue, due in 3 days, waiting on the customer, on-time rate over 90 days, average days to decide.
+- **Deadline runway.** The home screen draws every open case as a bar running toward its legal deadline, with a line for today, so the team can see at a glance which decisions are late or nearly due. A plain-English headline sums up the day.
+- **Compliance figures.** Open requests, cases waiting on the customer, the on-time rate over 90 days, and average days to decide.
 - **Audit trail.** Every action is recorded with who did it and when.
 
-| Case list | Case detail | Recording a decision |
+| Case list | Case detail with the s72 timeline | Recording a decision |
 |---|---|---|
 | ![Cases](docs/cases.png) | ![Case detail](docs/case-detail.png) | ![Decision](docs/record-decision.png) |
+
+The UI is built with MUI, using a custom theme (IBM Plex Sans with tabular figures and a deep petrol palette). Colour is used only to show deadline risk. The layout is responsive down to phone size and supports keyboard navigation.
 
 ## Architecture
 

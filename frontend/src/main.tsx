@@ -1,19 +1,14 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import { Provider } from 'react-redux';
 import { HashRouter } from 'react-router-dom';
+import '@fontsource/ibm-plex-sans/400.css';
+import '@fontsource/ibm-plex-sans/500.css';
+import '@fontsource/ibm-plex-sans/600.css';
 import App from './App';
 import { store } from './store';
-
-const theme = createTheme({
-  palette: {
-    primary: { main: '#1d3b6f' },
-    secondary: { main: '#f2a900' },
-  },
-  shape: { borderRadius: 10 },
-  typography: { fontFamily: 'Inter, "Segoe UI", Roboto, Arial, sans-serif' },
-});
+import { theme } from './theme';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

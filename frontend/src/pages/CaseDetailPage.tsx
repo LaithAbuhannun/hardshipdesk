@@ -1,12 +1,15 @@
 import { useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, CircularProgress, Divider, Grid2 as Grid, LinearProgress, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Typography } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { Link as RouterLink, useParams } from 'react-router-dom';
 import { useGetCaseQuery } from '../api/hardshipApi';
 import type { CaseDetail } from '../api/types';
 import { CaseActionDialog, type ActionKind } from '../components/CaseActionDialog';
 import { RiskChip, statusLabel } from '../components/RiskChip';
-import { daysBetween, describeDaysRemaining, formatDate } from '../lib/dates';
+import { addDays, daysBetween, describeDaysRemaining, formatDate, todaySydney } from '../lib/dates';
+import { ink, riskColor } from '../theme';
+
+const panel = { bgcolor: ink.surface, border: `1px solid ${ink.line}`, borderRadius: 3, p: { xs: 2, md: 3 } };
 
 const eventLabels: Record<string, string> = {
   HardshipNoticeReceived: 'Hardship notice received',
@@ -17,47 +20,68 @@ const eventLabels: Record<string, string> = {
   VariationNoticeSent: 'Written variation notice sent',
 };
 
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
+/** The s72 process drawn to scale: what happened, today, and when the decision is due. */
+function ClockTimeline({ c }: { c: CaseDetail }) {
+  const today = todaySydney();
+  const end = [c.responseDueDate, c.respondedDate ?? today, today].sort().at(-1)!;
+  const span = Math.max(1, daysBetween(c.receivedDate, addDays(end, 1)));
+  const pct = (d: string) => (daysBetween(c.receivedDate, d) / span) * 100;
+  const color = riskColor[c.riskLevel];
+
+  const raw = [
+    { date: c.receivedDate, label: 'Notice received', due: false },
+    c.infoRequestedDate && { date: c.infoRequestedDate, label: 'Info requested', due: false },
+    c.infoReceivedDate && { date: c.infoReceivedDate, label: 'Info received', due: false },
+    c.respondedDate && { date: c.respondedDate, label: 'Decision sent', due: false },
+    { date: c.responseDueDate, label: 'Decision due', due: true },
+  ].filter(Boolean) as { date: string; label: string; due: boolean }[];
+  raw.sort((a, b) => (a.date === b.date ? Number(a.due) - Number(b.due) : a.date < b.date ? -1 : 1));
+
+  // Put a label above the line when it would collide with the previous label below it.
+  let lastBelow = -100;
+  let lastAbove = -100;
+  const marks = raw.map((m) => {
+    const at = pct(m.date);
+    const above = at - lastBelow < 16 && at - lastAbove >= 16;
+    if (above) lastAbove = at; else lastBelow = at;
+    return { ...m, at, above };
+  });
+
+  const align = (at: number) => (at < 8 ? { left: `${at}%`, transform: 'translateX(-6px)', textAlign: 'left' as const }
+    : at > 92 ? { right: `${100 - at}%`, transform: 'translateX(6px)', textAlign: 'right' as const }
+    : { left: `${at}%`, transform: 'translateX(-50%)', textAlign: 'center' as const });
+
   return (
-    <Box>
-      <Typography variant="caption" color="text.secondary">{label}</Typography>
-      <Typography>{value}</Typography>
+    <Box sx={{ position: 'relative', height: 120, mt: 2, mx: 1 }} role="img"
+      aria-label={`Timeline: ${raw.map((m) => `${m.label} ${formatDate(m.date)}`).join(', ')}`}>
+      <Box sx={{ position: 'absolute', left: 0, right: 0, top: 52, height: 6, borderRadius: 3, bgcolor: ink.line }} />
+      <Box sx={{ position: 'absolute', left: 0, width: `${Math.min(100, pct(c.respondedDate ?? today))}%`, top: 52, height: 6, borderRadius: 3, bgcolor: color }} />
+      {!c.respondedDate && (
+        <>
+          <Box sx={{ position: 'absolute', left: `${pct(today)}%`, top: 40, height: 30, width: 2, bgcolor: ink.text }} />
+        </>
+      )}
+      {marks.map((m) => (
+        <Box key={m.label}>
+          {m.due
+            ? <Box sx={{ position: 'absolute', left: `calc(${m.at}% - 1.5px)`, top: 42, width: 3, height: 26, bgcolor: color, borderRadius: 1 }} />
+            : <Box sx={{ position: 'absolute', left: `calc(${m.at}% - 7px)`, top: 48, width: 14, height: 14, borderRadius: '50%', bgcolor: ink.surface, border: `3px solid ${color}` }} />}
+          <Box sx={{ position: 'absolute', ...(m.above ? { bottom: 84 } : { top: 76 }), ...align(m.at), whiteSpace: 'nowrap' }}>
+            <Typography variant="body2" sx={{ fontSize: 12.5, color: m.due ? color : ink.muted, fontWeight: m.due ? 600 : 400 }}>{m.label}</Typography>
+            <Typography variant="body2" sx={{ fontSize: 12.5, fontWeight: m.due ? 600 : 500 }}>{formatDate(m.date)}</Typography>
+          </Box>
+        </Box>
+      ))}
     </Box>
   );
 }
 
-function ClockCard({ c }: { c: CaseDetail }) {
-  const startDate = c.infoReceivedDate ?? c.infoRequestedDate ?? c.receivedDate;
-  const total = Math.max(1, daysBetween(startDate, c.responseDueDate));
-  const used = Math.min(total, Math.max(0, total - c.daysRemaining));
-  const responded = !!c.respondedDate;
-  const color = c.riskLevel === 'Overdue' || c.riskLevel === 'Breached' ? 'error' : c.riskLevel === 'Critical' || c.riskLevel === 'Warning' ? 'warning' : 'success';
-
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <Card variant="outlined">
-      <CardContent>
-        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Statutory clock</Typography>
-          <RiskChip level={c.riskLevel} size="medium" />
-        </Stack>
-        <Typography variant="h3" sx={{ fontWeight: 700, mt: 1 }}>{formatDate(c.responseDueDate)}</Typography>
-        <Typography color="text.secondary">Decision due · {describeDaysRemaining(c.daysRemaining, responded)}</Typography>
-        <LinearProgress variant="determinate" value={(used / total) * 100} color={color} sx={{ height: 8, borderRadius: 4, my: 2 }} />
-        <Typography variant="body2">Rule applied: <b>{c.ruleApplied}</b> (National Credit Code s72).</Typography>
-        {!c.infoRequestedDate && !responded && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Information can be requested until {formatDate(c.infoRequestDeadline)}.
-          </Typography>
-        )}
-        {c.variationNoticeDueDate && (
-          <Alert severity={c.variationNoticeSentDate ? 'success' : 'warning'} sx={{ mt: 2 }}>
-            {c.variationNoticeSentDate
-              ? `Written variation notice sent ${formatDate(c.variationNoticeSentDate)}.`
-              : `Arrangement is over 90 days: written variation notice due by ${formatDate(c.variationNoticeDueDate)}.`}
-          </Alert>
-        )}
-      </CardContent>
-    </Card>
+    <Box>
+      <Typography variant="body2" sx={{ color: ink.muted }}>{label}</Typography>
+      <Typography sx={{ fontSize: 14.5 }}>{children}</Typography>
+    </Box>
   );
 }
 
@@ -67,62 +91,86 @@ export function CaseDetailPage() {
   const [action, setAction] = useState<ActionKind | null>(null);
 
   if (isLoading) return <CircularProgress />;
-  if (error || !data) return <Alert severity="error">Case not found.</Alert>;
+  if (error || !data) return <Alert severity="error">We couldn’t find case {id}. Go back to all cases and pick another.</Alert>;
 
   const c = data.case;
-  const money = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(c.balance);
+  const money = new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 0 }).format(c.balance);
+  const responded = !!c.respondedDate;
 
   return (
-    <Stack spacing={2}>
-      <Button component={RouterLink} to="/cases" startIcon={<ArrowBackIcon />} sx={{ alignSelf: 'flex-start' }}>All cases</Button>
-      <Box>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>{c.caseReference} · {c.customerName}</Typography>
-        <Typography color="text.secondary">{c.productType} {c.contractNumber} · {statusLabel(c.status)}</Typography>
+    <Box sx={{ display: 'grid', gap: 3 }}>
+      <Button component={RouterLink} to="/cases" startIcon={<ArrowBackIcon />} sx={{ justifySelf: 'start', ml: -1.5, color: ink.muted }}>All cases</Button>
+
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="h1">{c.customerName}</Typography>
+          <Typography sx={{ color: ink.muted }}>{c.caseReference}, {c.productType} {c.contractNumber}, {statusLabel(c.status).toLowerCase()}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {c.status === 'Open' && <Button variant="outlined" onClick={() => setAction('request-information')}>Request information</Button>}
+          {c.status === 'InfoRequested' && <Button variant="outlined" onClick={() => setAction('information-received')}>Mark information received</Button>}
+          {c.variationNoticeDueDate && !c.variationNoticeSentDate && <Button variant="outlined" color="warning" onClick={() => setAction('variation-notice')}>Mark variation notice sent</Button>}
+          {!responded && <Button variant="contained" onClick={() => setAction('response')}>Record decision</Button>}
+        </Box>
       </Box>
 
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-        {c.status === 'Open' && <Button variant="outlined" onClick={() => setAction('request-information')}>Request information</Button>}
-        {c.status === 'InfoRequested' && <Button variant="outlined" onClick={() => setAction('information-received')}>Information received</Button>}
-        {c.status !== 'Responded' && <Button variant="contained" onClick={() => setAction('response')}>Record decision</Button>}
-        {c.variationNoticeDueDate && !c.variationNoticeSentDate && <Button variant="contained" color="warning" onClick={() => setAction('variation-notice')}>Variation notice sent</Button>}
-      </Stack>
+      <Box sx={panel}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2, flexWrap: 'wrap' }}>
+          <Box>
+            <Typography sx={{ fontSize: 34, fontWeight: 600, lineHeight: 1.1, color: responded ? ink.text : riskColor[c.riskLevel] }}>
+              {describeDaysRemaining(c.daysRemaining, responded)}
+            </Typography>
+            <Typography sx={{ color: ink.muted, mt: 0.5 }}>Decision due {c.ruleApplied}.</Typography>
+          </Box>
+          <RiskChip level={c.riskLevel} />
+        </Box>
+        <ClockTimeline c={c} />
+        {!c.infoRequestedDate && !responded && (
+          <Typography variant="body2" sx={{ color: ink.muted, mt: 1 }}>You can still ask for more information until {formatDate(c.infoRequestDeadline)}.</Typography>
+        )}
+        {c.variationNoticeDueDate && (
+          <Alert severity={c.variationNoticeSentDate ? 'success' : 'warning'} sx={{ mt: 2 }}>
+            {c.variationNoticeSentDate
+              ? `Written variation notice sent ${formatDate(c.variationNoticeSentDate)}.`
+              : `This arrangement is longer than 90 days, so a written variation notice is due by ${formatDate(c.variationNoticeDueDate)}.`}
+          </Alert>
+        )}
+      </Box>
 
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 6 }}><ClockCard c={c} /></Grid>
-        <Grid size={{ xs: 12, md: 6 }}>
-          <Card variant="outlined" sx={{ height: '100%' }}>
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 1 }}>Details</Typography>
-              <Grid container spacing={2}>
-                <Grid size={6}><Field label="Received" value={`${formatDate(c.receivedDate)} via ${c.channel}`} /></Grid>
-                <Grid size={6}><Field label="Balance" value={money} /></Grid>
-                <Grid size={6}><Field label="Email" value={c.customerEmail} /></Grid>
-                <Grid size={6}><Field label="Owner" value={c.assignedTo ?? 'Unassigned'} /></Grid>
-                {c.outcome && <Grid size={6}><Field label="Decision" value={`${c.outcome}${c.arrangementDays ? ` · ${c.arrangementDays} days` : ''}`} /></Grid>}
-                <Grid size={12}><Field label="What the customer told us" value={c.reason} /></Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3, alignItems: 'start' }}>
+        <Box sx={panel}>
+          <Typography variant="h2" sx={{ mb: 2 }}>Request</Typography>
+          <Typography sx={{ fontSize: 16, lineHeight: 1.6, mb: 2.5, maxWidth: '60ch' }}>“{c.reason}”</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <Field label="Received">{formatDate(c.receivedDate)} by {c.channel.toLowerCase()}</Field>
+            <Field label="Balance">{money}</Field>
+            <Field label="Email">{c.customerEmail}</Field>
+            <Field label="Owner">{c.assignedTo ?? 'Not assigned'}</Field>
+            {c.outcome && <Field label="Decision">{c.outcome}{c.arrangementDays ? `, ${c.arrangementDays}-day arrangement` : ''}</Field>}
+          </Box>
+        </Box>
 
-      <Card variant="outlined">
-        <CardContent>
-          <Typography variant="h6" sx={{ mb: 1 }}>Audit trail</Typography>
-          <Stack divider={<Divider />} spacing={1}>
-            {data.events.map((e) => (
-              <Box key={e.eventId}>
-                <Typography sx={{ fontWeight: 600 }}>{eventLabels[e.eventType] ?? e.eventType}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {new Date(e.occurredAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })} · {e.actor}{e.detail ? ` · ${e.detail}` : ''}
-                </Typography>
+        <Box sx={panel}>
+          <Typography variant="h2" sx={{ mb: 1 }}>History</Typography>
+          {data.events.map((e, i) => (
+            <Box key={e.eventId} sx={{ display: 'grid', gridTemplateColumns: '14px 1fr', columnGap: 1.5 }}>
+              <Box sx={{ position: 'relative' }}>
+                <Box sx={{ position: 'absolute', left: 4, top: 8, width: 6, height: 6, borderRadius: '50%', bgcolor: ink.brand }} />
+                {i < data.events.length - 1 && <Box sx={{ position: 'absolute', left: 6.5, top: 18, bottom: -6, width: '1px', bgcolor: ink.line }} />}
               </Box>
-            ))}
-          </Stack>
-        </CardContent>
-      </Card>
+              <Box sx={{ pb: 2 }}>
+                <Typography sx={{ fontWeight: 600, fontSize: 14.5 }}>{eventLabels[e.eventType] ?? e.eventType}</Typography>
+                <Typography variant="body2" sx={{ color: ink.muted }}>
+                  {new Date(e.occurredAt).toLocaleString('en-AU', { dateStyle: 'medium', timeStyle: 'short' })} by {e.actor}
+                </Typography>
+                {e.detail && <Typography variant="body2" sx={{ mt: 0.5 }}>{e.detail}</Typography>}
+              </Box>
+            </Box>
+          ))}
+        </Box>
+      </Box>
 
       <CaseActionDialog kind={action} detail={c} onClose={() => setAction(null)} />
-    </Stack>
+    </Box>
   );
 }

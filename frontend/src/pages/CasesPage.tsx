@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Box, Button, Card, InputAdornment, LinearProgress, MenuItem, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Box, Button, InputAdornment, LinearProgress, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { useNavigate } from 'react-router-dom';
 import { useGetCasesQuery } from '../api/hardshipApi';
@@ -7,6 +7,7 @@ import type { CaseStatus, RiskLevel } from '../api/types';
 import { RiskChip, riskLabel, statusLabel } from '../components/RiskChip';
 import { describeDaysRemaining, formatDate } from '../lib/dates';
 import { clearFilters, setFilter, useAppDispatch, useAppSelector } from '../store';
+import { ink, riskColor } from '../theme';
 
 const statuses: CaseStatus[] = ['Open', 'InfoRequested', 'InfoReceived', 'Responded'];
 const risks: RiskLevel[] = ['Overdue', 'Critical', 'Warning', 'OnTrack', 'Met', 'Breached'];
@@ -24,36 +25,36 @@ export function CasesPage() {
   }, [search, dispatch]);
 
   const { data, isFetching } = useGetCasesQuery(filters);
+  const filtered = !!(filters.status || filters.risk || filters.search);
 
   return (
-    <Stack spacing={2}>
-      <Typography variant="h5" sx={{ fontWeight: 700 }}>Cases</Typography>
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-        <TextField size="small" placeholder="Search name, case or contract" value={search} onChange={(e) => setSearch(e.target.value)} sx={{ minWidth: 280 }}
+    <Box sx={{ display: 'grid', gap: 2.5 }}>
+      <Typography variant="h1">All cases</Typography>
+
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+        <TextField size="small" placeholder="Search by name, case or contract" value={search} onChange={(e) => setSearch(e.target.value)} sx={{ minWidth: 300, flexGrow: { xs: 1, sm: 0 } }}
           slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }} />
-        <TextField select size="small" label="Status" value={filters.status ?? ''} sx={{ minWidth: 180 }}
+        <TextField select size="small" label="Stage" value={filters.status ?? ''} sx={{ minWidth: 190 }}
           onChange={(e) => dispatch(setFilter({ status: (e.target.value || undefined) as CaseStatus | undefined }))}>
-          <MenuItem value="">All</MenuItem>
+          <MenuItem value="">Any stage</MenuItem>
           {statuses.map((s) => <MenuItem key={s} value={s}>{statusLabel(s)}</MenuItem>)}
         </TextField>
-        <TextField select size="small" label="Deadline" value={filters.risk ?? ''} sx={{ minWidth: 180 }}
+        <TextField select size="small" label="Deadline" value={filters.risk ?? ''} sx={{ minWidth: 190 }}
           onChange={(e) => dispatch(setFilter({ risk: (e.target.value || undefined) as RiskLevel | undefined }))}>
-          <MenuItem value="">All</MenuItem>
+          <MenuItem value="">Any deadline</MenuItem>
           {risks.map((r) => <MenuItem key={r} value={r}>{riskLabel(r)}</MenuItem>)}
         </TextField>
-        <Button onClick={() => { setSearch(''); dispatch(clearFilters()); }}>Clear</Button>
-      </Stack>
+        {filtered && <Button onClick={() => { setSearch(''); dispatch(clearFilters()); }}>Clear filters</Button>}
+      </Box>
 
-      <Card variant="outlined">
-        {isFetching && <LinearProgress />}
+      <Box sx={{ bgcolor: ink.surface, border: `1px solid ${ink.line}`, borderRadius: 3, overflow: 'hidden' }}>
+        <Box sx={{ height: 2 }}>{isFetching && <LinearProgress sx={{ height: 2 }} />}</Box>
         <TableContainer>
-          <Table size="small">
+          <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Case</TableCell>
                 <TableCell>Customer</TableCell>
-                <TableCell>Product</TableCell>
-                <TableCell>Status</TableCell>
+                <TableCell>Stage</TableCell>
                 <TableCell>Received</TableCell>
                 <TableCell>Decision due</TableCell>
                 <TableCell>Deadline</TableCell>
@@ -62,24 +63,29 @@ export function CasesPage() {
             </TableHead>
             <TableBody>
               {data?.map((c) => (
-                <TableRow key={c.caseId} hover sx={{ cursor: 'pointer' }} onClick={() => navigate(`/cases/${c.caseId}`)}>
-                  <TableCell sx={{ fontWeight: 600 }}>{c.caseReference}</TableCell>
-                  <TableCell>{c.customerName}<Box component="div" sx={{ color: 'text.secondary', fontSize: 12 }}>{c.contractNumber}</Box></TableCell>
-                  <TableCell>{c.productType}</TableCell>
+                <TableRow key={c.caseId} hover tabIndex={0} sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, '&:focus-visible': { outline: `2px solid ${ink.brand}`, outlineOffset: -2 } }}
+                  onClick={() => navigate(`/cases/${c.caseId}`)} onKeyDown={(e) => e.key === 'Enter' && navigate(`/cases/${c.caseId}`)}>
+                  <TableCell sx={{ boxShadow: `inset 3px 0 0 ${c.respondedDate ? 'transparent' : riskColor[c.riskLevel]}` }}>
+                    <Typography sx={{ fontWeight: 600, fontSize: 14.5 }}>{c.customerName}</Typography>
+                    <Typography variant="body2" sx={{ color: ink.muted }}>{c.caseReference}, {c.productType} {c.contractNumber}</Typography>
+                  </TableCell>
                   <TableCell>{statusLabel(c.status)}</TableCell>
                   <TableCell>{formatDate(c.receivedDate)}</TableCell>
-                  <TableCell>{formatDate(c.responseDueDate)}<Box component="div" sx={{ color: 'text.secondary', fontSize: 12 }}>{describeDaysRemaining(c.daysRemaining, !!c.respondedDate)}</Box></TableCell>
+                  <TableCell>
+                    {formatDate(c.responseDueDate)}
+                    <Typography variant="body2" sx={{ color: ink.muted }}>{describeDaysRemaining(c.daysRemaining, !!c.respondedDate)}</Typography>
+                  </TableCell>
                   <TableCell><RiskChip level={c.riskLevel} /></TableCell>
-                  <TableCell>{c.assignedTo ?? <Box component="span" sx={{ color: 'text.disabled' }}>Unassigned</Box>}</TableCell>
+                  <TableCell sx={{ color: c.assignedTo ? ink.text : ink.faint }}>{c.assignedTo ?? 'Not assigned'}</TableCell>
                 </TableRow>
               ))}
               {data?.length === 0 && (
-                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>No cases match these filters.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6, color: ink.muted }}>No cases match these filters. Clear them to see every case.</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
         </TableContainer>
-      </Card>
-    </Stack>
+      </Box>
+    </Box>
   );
 }

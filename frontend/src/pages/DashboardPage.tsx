@@ -1,122 +1,105 @@
-import { Alert as MuiAlert, Box, Button, Card, CardContent, Grid2 as Grid, IconButton, List, ListItem, ListItemText, Skeleton, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Button, IconButton, Skeleton, Tooltip, Typography } from '@mui/material';
 import CheckIcon from '@mui/icons-material/Check';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useAcknowledgeAlertMutation, useGetAlertsQuery, useGetCasesQuery, useGetDashboardQuery, useRunDeadlineMonitorMutation } from '../api/hardshipApi';
-import { RiskChip } from '../components/RiskChip';
-import { describeDaysRemaining, formatDate } from '../lib/dates';
+import type { Dashboard } from '../api/types';
+import { DeadlineRunway } from '../components/DeadlineRunway';
+import { formatDate, todaySydney } from '../lib/dates';
 import { setFilter, useAppDispatch } from '../store';
-import type { RiskLevel } from '../api/types';
+import { ink, riskColor } from '../theme';
 
-function Stat({ label, value, tone, onClick }: { label: string; value: string | number; tone?: string; onClick?: () => void }) {
+const panel = { bgcolor: ink.surface, border: `1px solid ${ink.line}`, borderRadius: 3, p: { xs: 2, md: 3 } };
+
+/** The day's situation in one plain sentence, instead of a wall of stat cards. */
+function headline(s: Dashboard) {
+  const parts: string[] = [];
+  if (s.overdue) parts.push(`${s.overdue} decision${s.overdue === 1 ? ' is' : 's are'} already late`);
+  if (s.critical) parts.push(`${s.critical} ${s.critical === 1 ? 'is' : 'are'} due in the next 3 days`);
+  if (!parts.length) return 'Every open hardship request is inside its deadline.';
+  return `${parts.join(' and ')}.`.replace(/^./, (c) => c.toUpperCase());
+}
+
+function Figure({ value, label, color }: { value: string | number; label: string; color?: string }) {
   return (
-    <Card variant="outlined" sx={{ height: '100%', cursor: onClick ? 'pointer' : 'default', '&:hover': onClick ? { borderColor: 'primary.main' } : undefined }} onClick={onClick}>
-      <CardContent>
-        <Typography variant="body2" color="text.secondary">{label}</Typography>
-        <Typography variant="h4" sx={{ fontWeight: 700, color: tone }}>{value}</Typography>
-      </CardContent>
-    </Card>
+    <Box>
+      <Typography sx={{ fontSize: 26, fontWeight: 600, lineHeight: 1.1, color: color ?? ink.text }}>{value}</Typography>
+      <Typography variant="body2" sx={{ color: ink.muted }}>{label}</Typography>
+    </Box>
   );
 }
 
 export function DashboardPage() {
-  const { data: stats, isLoading } = useGetDashboardQuery();
-  const { data: atRisk } = useGetCasesQuery({});
+  const { data: stats } = useGetDashboardQuery();
+  const { data: cases } = useGetCasesQuery({});
   const { data: alerts } = useGetAlertsQuery();
   const [acknowledge] = useAcknowledgeAlertMutation();
   const [runMonitor, { isLoading: running }] = useRunDeadlineMonitorMutation();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-
-  const openRisk = (risk: RiskLevel) => {
-    dispatch(setFilter({ risk, status: undefined }));
-    navigate('/cases');
-  };
-
-  const urgent = (atRisk ?? []).filter((c) => !c.respondedDate && ['Overdue', 'Critical', 'Warning'].includes(c.riskLevel));
+  const today = new Date(`${todaySydney()}T00:00:00Z`).toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
 
   return (
-    <Stack spacing={3}>
+    <Box sx={{ display: 'grid', gap: 3 }}>
       <Box>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Hardship deadlines</Typography>
-        <Typography color="text.secondary">Every hardship notice must get a decision within the National Credit Code timeframes.</Typography>
+        <Typography variant="body2" sx={{ color: ink.muted, mb: 0.5 }}>{today}</Typography>
+        {stats ? (
+          <Typography variant="h1" sx={{ maxWidth: 760, textWrap: 'balance', color: stats.overdue ? riskColor.Overdue : ink.text }}>{headline(stats)}</Typography>
+        ) : <Skeleton width={520} height={44} />}
       </Box>
 
-      {stats && stats.overdue > 0 && (
-        <MuiAlert severity="error" action={<Button color="inherit" size="small" onClick={() => openRisk('Overdue')}>View</Button>}>
-          {stats.overdue} case{stats.overdue === 1 ? ' is' : 's are'} past the statutory deadline. Respond today and record the breach.
-        </MuiAlert>
+      {stats && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 6, rowGap: 2 }}>
+          <Figure value={stats.openCases} label="Open requests" />
+          <Figure value={stats.awaitingCustomer} label="Waiting on the customer" />
+          <Figure value={stats.onTimeRate == null ? '–' : `${stats.onTimeRate}%`} label="Decided on time, last 90 days"
+            color={stats.onTimeRate != null && stats.onTimeRate < 100 ? riskColor.Critical : undefined} />
+          <Figure value={stats.avgDaysToRespond ?? '–'} label="Average days to decide" />
+          {stats.variationNoticesPending > 0 && <Figure value={stats.variationNoticesPending} label="Variation notices to send" color={riskColor.Critical} />}
+        </Box>
       )}
 
-      <Grid container spacing={2}>
-        {isLoading || !stats ? (
-          [...Array(6)].map((_, i) => <Grid key={i} size={{ xs: 6, md: 2 }}><Skeleton variant="rounded" height={96} /></Grid>)
+      <Box sx={panel}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 2, gap: 2, flexWrap: 'wrap' }}>
+          <Box>
+            <Typography variant="h2">Deadline runway</Typography>
+            <Typography variant="body2" sx={{ color: ink.muted }}>Each bar runs from when the clock started to the date a decision is legally due.</Typography>
+          </Box>
+          <Button size="small" onClick={() => { dispatch(setFilter({ status: undefined, risk: undefined })); navigate('/cases'); }}>See all cases</Button>
+        </Box>
+        {cases ? <DeadlineRunway cases={cases} /> : <Skeleton variant="rounded" height={260} />}
+      </Box>
+
+      <Box sx={panel}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 1, gap: 2 }}>
+          <Box>
+            <Typography variant="h2">Alerts from this morning’s check</Typography>
+            <Typography variant="body2" sx={{ color: ink.muted }}>The check runs at 8am Sydney time and flags anything due within 3 days or overdue.</Typography>
+          </Box>
+          <Button size="small" variant="outlined" disabled={running} onClick={() => runMonitor()}>Run check now</Button>
+        </Box>
+        {!alerts?.length ? (
+          <Typography sx={{ color: ink.muted, py: 2 }}>No open alerts. New ones appear here after the next check.</Typography>
         ) : (
-          <>
-            <Grid size={{ xs: 6, md: 2 }}><Stat label="Open cases" value={stats.openCases} /></Grid>
-            <Grid size={{ xs: 6, md: 2 }}><Stat label="Overdue" value={stats.overdue} tone="error.main" onClick={() => openRisk('Overdue')} /></Grid>
-            <Grid size={{ xs: 6, md: 2 }}><Stat label="Due in 3 days" value={stats.critical} tone="warning.dark" onClick={() => openRisk('Critical')} /></Grid>
-            <Grid size={{ xs: 6, md: 2 }}><Stat label="Waiting on customer" value={stats.awaitingCustomer} /></Grid>
-            <Grid size={{ xs: 6, md: 2 }}><Stat label="On-time rate (90 days)" value={stats.onTimeRate == null ? '—' : `${stats.onTimeRate}%`} tone={stats.onTimeRate != null && stats.onTimeRate < 100 ? 'warning.dark' : 'success.main'} /></Grid>
-            <Grid size={{ xs: 6, md: 2 }}><Stat label="Avg days to decide" value={stats.avgDaysToRespond ?? '—'} /></Grid>
-          </>
+          alerts.map((a) => (
+            <Box key={a.alertId} sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.5, borderTop: `1px solid ${ink.line}` }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: riskColor[a.riskLevel], flexShrink: 0 }} />
+              <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                <Typography component={RouterLink} to={`/cases/${a.caseId}`} sx={{ fontWeight: 600, color: ink.text, textDecoration: 'none', '&:hover': { color: ink.brand } }}>
+                  {a.customerName}
+                </Typography>
+                <Typography variant="body2" sx={{ color: ink.muted }}>
+                  {a.alertType === 'ResponseDue' ? 'Decision' : 'Written variation notice'}{' '}
+                  {a.riskLevel === 'Overdue' ? 'was due' : 'is due'} {formatDate(a.dueDate)}
+                  {a.assignedTo ? `, assigned to ${a.assignedTo}` : ', not assigned'}
+                </Typography>
+              </Box>
+              <Tooltip title="Mark as seen">
+                <IconButton size="small" aria-label={`Mark alert for ${a.customerName} as seen`} onClick={() => acknowledge(a.alertId)}><CheckIcon fontSize="small" /></IconButton>
+              </Tooltip>
+            </Box>
+          ))
         )}
-      </Grid>
-
-      <Grid container spacing={2}>
-        <Grid size={{ xs: 12, md: 7 }}>
-          <Card variant="outlined">
-            <CardContent>
-              <Typography variant="h6" sx={{ mb: 1 }}>Needs a decision soon</Typography>
-              {urgent.length === 0 ? (
-                <Typography color="text.secondary">Nothing due in the next 7 days.</Typography>
-              ) : (
-                <List disablePadding>
-                  {urgent.map((c) => (
-                    <ListItem key={c.caseId} divider component={RouterLink} to={`/cases/${c.caseId}`} sx={{ color: 'inherit', px: 0 }}
-                      secondaryAction={<RiskChip level={c.riskLevel} />}>
-                      <ListItemText
-                        primary={`${c.caseReference} · ${c.customerName}`}
-                        secondary={`${c.productType} · due ${formatDate(c.responseDueDate)} · ${describeDaysRemaining(c.daysRemaining, false)}${c.assignedTo ? ` · ${c.assignedTo}` : ' · unassigned'}`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Card variant="outlined">
-            <CardContent>
-              <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="h6">Alerts</Typography>
-                <Tooltip title="The Hangfire job runs every day at 8am Sydney time. Run it now to check again.">
-                  <span>
-                    <Button size="small" startIcon={<PlayArrowIcon />} disabled={running} onClick={() => runMonitor()}>Run check</Button>
-                  </span>
-                </Tooltip>
-              </Stack>
-              {!alerts?.length ? (
-                <Typography color="text.secondary">No open alerts.</Typography>
-              ) : (
-                <List disablePadding>
-                  {alerts.map((a) => (
-                    <ListItem key={a.alertId} divider sx={{ px: 0 }}
-                      secondaryAction={<Tooltip title="Acknowledge"><IconButton edge="end" onClick={() => acknowledge(a.alertId)}><CheckIcon /></IconButton></Tooltip>}>
-                      <ListItemText
-                        primary={<RouterLink to={`/cases/${a.caseId}`} style={{ color: 'inherit' }}>{a.caseReference} · {a.customerName}</RouterLink>}
-                        secondary={`${a.alertType === 'ResponseDue' ? 'Decision' : 'Written variation notice'} ${a.riskLevel === 'Overdue' ? 'overdue since' : 'due'} ${formatDate(a.dueDate)}`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Stack>
+      </Box>
+    </Box>
   );
 }

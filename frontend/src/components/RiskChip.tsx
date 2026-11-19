@@ -1,27 +1,36 @@
-import { Chip, type ChipProps } from '@mui/material';
+import { Box } from '@mui/material';
 import type { CaseStatus, RiskLevel } from '../api/types';
+import { riskColor, riskTint } from '../theme';
 
-const risk: Record<RiskLevel, { label: string; color: ChipProps['color']; variant?: ChipProps['variant'] }> = {
-  OnTrack: { label: 'On track', color: 'success', variant: 'outlined' },
-  Warning: { label: 'Due this week', color: 'warning', variant: 'outlined' },
-  Critical: { label: 'Critical', color: 'warning' },
-  Overdue: { label: 'Overdue', color: 'error' },
-  Met: { label: 'Met', color: 'success' },
-  Breached: { label: 'Breached', color: 'error', variant: 'outlined' },
+const labels: Record<RiskLevel, string> = {
+  OnTrack: 'On track',
+  Warning: 'Due this week',
+  Critical: 'Due within 3 days',
+  Overdue: 'Overdue',
+  Met: 'Met on time',
+  Breached: 'Missed deadline',
 };
 
-export function RiskChip({ level, size = 'small' }: { level: RiskLevel; size?: ChipProps['size'] }) {
-  const r = risk[level];
-  return <Chip size={size} label={r.label} color={r.color} variant={r.variant ?? 'filled'} sx={{ fontWeight: 600 }} />;
+/** A quiet tinted pill with a dot: colour carries the meaning, the label confirms it. */
+export function RiskChip({ level }: { level: RiskLevel; size?: 'small' | 'medium' }) {
+  return (
+    <Box component="span" sx={{
+      display: 'inline-flex', alignItems: 'center', gap: 0.75, px: 1, py: 0.25, borderRadius: 999,
+      bgcolor: riskTint[level], color: riskColor[level], fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap',
+    }}>
+      <Box component="span" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'currentColor' }} />
+      {labels[level]}
+    </Box>
+  );
 }
 
-export const riskLabel = (level: RiskLevel) => risk[level].label;
+export const riskLabel = (level: RiskLevel) => labels[level];
 
 const statusLabels: Record<CaseStatus, string> = {
-  Open: 'Open',
+  Open: 'New',
   InfoRequested: 'Waiting on customer',
-  InfoReceived: 'Info received',
-  Responded: 'Responded',
+  InfoReceived: 'Ready to decide',
+  Responded: 'Decided',
 };
 
 export const statusLabel = (s: CaseStatus) => statusLabels[s];
