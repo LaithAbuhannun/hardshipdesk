@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { CaseSummary } from '../api/types';
 import { addDays, daysBetween, formatDate, todaySydney } from '../lib/dates';
 import { ink, riskColor, riskTint } from '../theme';
+import { OwnerAvatar } from './OwnerAvatar';
 
 const PAST = 28;
 const AHEAD = 24;
@@ -25,7 +26,7 @@ export function DeadlineRunway({ cases }: { cases: CaseSummary[] }) {
   return (
     <Box>
       {/* Axis */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '220px 1fr 120px' }, columnGap: 2 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '210px 1fr 96px' }, columnGap: 2 }}>
         <Box sx={{ display: { xs: 'none', md: 'block' } }} />
         <Box sx={{ position: 'relative', height: 22 }}>
           {weeks.map((w) => (
@@ -54,20 +55,23 @@ export function DeadlineRunway({ cases }: { cases: CaseSummary[] }) {
             onClick={() => navigate(`/cases/${c.caseId}`)}
             onKeyDown={(e) => e.key === 'Enter' && navigate(`/cases/${c.caseId}`)}
             sx={{
-              display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: '220px 1fr 120px' }, gridTemplateAreas: { xs: '"name days" "bar bar"', md: '"name bar days"' }, columnGap: 2, rowGap: 0.5,
+              display: 'grid', gridTemplateColumns: { xs: '1fr auto', md: '210px 1fr 96px' }, gridTemplateAreas: { xs: '"name days" "bar bar"', md: '"name bar days"' }, columnGap: 2, rowGap: 0.5,
               alignItems: 'center', py: 1.25, borderTop: `1px solid ${ink.line}`, cursor: 'pointer',
               '&:hover .bar': { filter: 'brightness(0.95)' }, '&:hover .name': { color: ink.brand },
               '&:focus-visible': { outline: `2px solid ${ink.brand}`, outlineOffset: 2, borderRadius: 1 },
             }}
           >
-            <Box sx={{ minWidth: 0, gridArea: 'name' }}>
+            <Box sx={{ minWidth: 0, gridArea: 'name', display: 'flex', alignItems: 'center', gap: 1.25 }}>
+              <OwnerAvatar name={c.assignedTo} size={30} />
+              <Box sx={{ minWidth: 0 }}>
               <Typography className="name" sx={{ fontWeight: 600, fontSize: 14.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.customerName}</Typography>
               <Typography variant="body2" sx={{ color: ink.muted }}>{c.caseReference}, {c.productType.toLowerCase()}</Typography>
+              </Box>
             </Box>
 
             <Box sx={{ position: 'relative', height: 28, gridArea: 'bar' }}>
               {/* today line */}
-              <Box sx={{ position: 'absolute', left: `${todayPct}%`, top: -12, bottom: -12, width: '2px', bgcolor: ink.text, opacity: 0.85 }} />
+              <Box sx={{ position: 'absolute', left: `${todayPct}%`, top: { xs: 0, md: -12 }, bottom: { xs: 0, md: -12 }, width: '2px', bgcolor: ink.text, opacity: 0.85 }} />
               <Tooltip title={`Clock started ${formatDate(clockStart)}, decision due ${formatDate(c.responseDueDate)}`}>
                 <Box className="bar" sx={{
                   position: 'absolute', top: 6, height: 16, left: `${left}%`, width: `${Math.max(1, right - left)}%`,

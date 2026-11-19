@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGetCasesQuery } from '../api/hardshipApi';
 import type { CaseStatus, RiskLevel } from '../api/types';
 import { RiskChip, riskLabel, statusLabel } from '../components/RiskChip';
+import { Owner } from '../components/OwnerAvatar';
 import { describeDaysRemaining, formatDate } from '../lib/dates';
 import { clearFilters, setFilter, useAppDispatch, useAppSelector } from '../store';
 import { ink, riskColor } from '../theme';
@@ -47,7 +48,7 @@ export function CasesPage() {
         {filtered && <Button onClick={() => { setSearch(''); dispatch(clearFilters()); }}>Clear filters</Button>}
       </Box>
 
-      <Box sx={{ bgcolor: ink.surface, border: `1px solid ${ink.line}`, borderRadius: 3, overflow: 'hidden' }}>
+      <Box sx={{ bgcolor: ink.surface, border: `1px solid ${ink.line}`, borderRadius: '16px', overflow: 'hidden' }}>
         <Box sx={{ height: 2 }}>{isFetching && <LinearProgress sx={{ height: 2 }} />}</Box>
         <TableContainer>
           <Table>
@@ -76,7 +77,7 @@ export function CasesPage() {
                     <Typography variant="body2" sx={{ color: ink.muted }}>{describeDaysRemaining(c.daysRemaining, !!c.respondedDate)}</Typography>
                   </TableCell>
                   <TableCell><RiskChip level={c.riskLevel} /></TableCell>
-                  <TableCell sx={{ color: c.assignedTo ? ink.text : ink.faint }}>{c.assignedTo ?? 'Not assigned'}</TableCell>
+                  <TableCell><Owner name={c.assignedTo} /></TableCell>
                 </TableRow>
               ))}
               {data?.length === 0 && (

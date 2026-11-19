@@ -6,10 +6,11 @@ import { useGetCaseQuery } from '../api/hardshipApi';
 import type { CaseDetail } from '../api/types';
 import { CaseActionDialog, type ActionKind } from '../components/CaseActionDialog';
 import { RiskChip, statusLabel } from '../components/RiskChip';
+import { Owner } from '../components/OwnerAvatar';
 import { addDays, daysBetween, describeDaysRemaining, formatDate, todaySydney } from '../lib/dates';
 import { ink, riskColor } from '../theme';
 
-const panel = { bgcolor: ink.surface, border: `1px solid ${ink.line}`, borderRadius: 3, p: { xs: 2, md: 3 } };
+const panel = { bgcolor: ink.surface, border: `1px solid ${ink.line}`, borderRadius: '16px', p: { xs: 2, md: 3 } };
 
 const eventLabels: Record<string, string> = {
   HardshipNoticeReceived: 'Hardship notice received',
@@ -54,8 +55,8 @@ function ClockTimeline({ c }: { c: CaseDetail }) {
   return (
     <Box sx={{ position: 'relative', height: 120, mt: 2, mx: 1 }} role="img"
       aria-label={`Timeline: ${raw.map((m) => `${m.label} ${formatDate(m.date)}`).join(', ')}`}>
-      <Box sx={{ position: 'absolute', left: 0, right: 0, top: 52, height: 6, borderRadius: 3, bgcolor: ink.line }} />
-      <Box sx={{ position: 'absolute', left: 0, width: `${Math.min(100, pct(c.respondedDate ?? today))}%`, top: 52, height: 6, borderRadius: 3, bgcolor: color }} />
+      <Box sx={{ position: 'absolute', left: 0, right: 0, top: 52, height: 6, borderRadius: '16px', bgcolor: ink.line }} />
+      <Box sx={{ position: 'absolute', left: 0, width: `${Math.min(100, pct(c.respondedDate ?? today))}%`, top: 52, height: 6, borderRadius: '16px', bgcolor: color }} />
       {!c.respondedDate && (
         <>
           <Box sx={{ position: 'absolute', left: `${pct(today)}%`, top: 40, height: 30, width: 2, bgcolor: ink.text }} />
@@ -80,7 +81,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <Box>
       <Typography variant="body2" sx={{ color: ink.muted }}>{label}</Typography>
-      <Typography sx={{ fontSize: 14.5 }}>{children}</Typography>
+      <Typography component="div" sx={{ fontSize: 14.5 }}>{children}</Typography>
     </Box>
   );
 }
@@ -145,7 +146,7 @@ export function CaseDetailPage() {
             <Field label="Received">{formatDate(c.receivedDate)} by {c.channel.toLowerCase()}</Field>
             <Field label="Balance">{money}</Field>
             <Field label="Email">{c.customerEmail}</Field>
-            <Field label="Owner">{c.assignedTo ?? 'Not assigned'}</Field>
+            <Field label="Owner"><Owner name={c.assignedTo} /></Field>
             {c.outcome && <Field label="Decision">{c.outcome}{c.arrangementDays ? `, ${c.arrangementDays}-day arrangement` : ''}</Field>}
           </Box>
         </Box>
