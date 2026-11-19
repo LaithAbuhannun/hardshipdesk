@@ -4,6 +4,8 @@
 
 React + Redux + TypeScript + MUI · ASP.NET Core 8 Web API (C#) · SQL Server + T-SQL stored procedures · Hangfire · Redgate Flyway migrations · Azure DevOps CI/CD
 
+**[Live demo →](https://laithabuhannun.github.io/hardshipdesk/)** (runs in the browser with sample data)
+
 ![Dashboard](docs/dashboard.png)
 
 ## The problem
